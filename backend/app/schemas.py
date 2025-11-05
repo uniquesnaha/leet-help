@@ -51,6 +51,7 @@ class Entry(EntryBase):
         return v
 
     class Config:
+        orm_mode = True
         from_attributes = True
 
 class CodeExplanationRequest(BaseModel):

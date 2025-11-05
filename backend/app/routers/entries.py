@@ -134,4 +134,4 @@ async def create_entry(
     db.add(db_entry)
     db.commit()
     db.refresh(db_entry)
-    return db_entry
+    return schemas.Entry.from_orm(db_entry)
