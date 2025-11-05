@@ -19,6 +19,26 @@ if not os.path.exists(UPLOAD_DIRECTORY):
 from ..auth_utils import get_current_user
 import requests
 import json
+from typing import List
+
+from typing import Optional
+
+@router.get("/", response_model=List[schemas.Entry])
+def get_entries(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+    search: Optional[str] = None,
+    difficulty: Optional[str] = None,
+    tags: Optional[str] = None,
+):
+    query = db.query(models.Entry).filter(models.Entry.owner_id == current_user.id)
+    if search:
+        query = query.filter(models.Entry.title.contains(search) | models.Entry.notes.contains(search))
+    if difficulty:
+        query = query.filter(models.Entry.difficulty == difficulty)
+    if tags:
+        query = query.filter(models.Entry.tags.contains(tags))
+    return query.all()
 
 @router.post("/scrape", response_model=schemas.ProblemDetails)
 def scrape_leetcode_url(leetcode_url: schemas.LeetCodeURL, db: Session = Depends(get_db)):

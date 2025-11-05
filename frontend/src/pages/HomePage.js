@@ -5,7 +5,7 @@ function HomePage() {
   return (
     <div>
       <h1>Welcome to the LeetCode Tracker</h1>
-      <Link to="/login">Login</Link> | <Link to="/register">Register</Link> | <Link to="/add-entry">Add Entry</Link>
+      <Link to="/login">Login</Link> | <Link to="/register">Register</Link> | <Link to="/add-entry">Add Entry</Link> | <Link to="/vault">Codex Vault</Link>
     </div>
   );
 }

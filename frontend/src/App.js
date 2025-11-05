@@ -4,6 +4,7 @@ import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 import RegistrationPage from './pages/RegistrationPage';
 import AddEntryPage from './pages/AddEntryPage';
+import CodexVaultPage from './pages/CodexVaultPage.js';
 
 function App() {
   return (
@@ -13,6 +14,7 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegistrationPage />} />
         <Route path="/add-entry" element={<AddEntryPage />} />
+        <Route path="/vault" element={<CodexVaultPage />} />
       </Routes>
     </Router>
   );
