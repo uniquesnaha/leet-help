@@ -1,0 +1,16 @@
+# Environments
+.env
+.venv
+venv/
+__pycache__/
+*.pyc
+
+# Databases
+*.db
+*.sqlite3
+
+# Logs
+*.log
+
+# Uploads
+uploads/
