@@ -5,18 +5,18 @@ export const darkTheme = createTheme({
   palette: {
     mode: 'dark',
     primary: {
-      main: '#ffffff', // Bright white for primary actions
+      main: '#007aff', // A vibrant blue for primary actions
     },
     secondary: {
       main: '#f8f8f8',
     },
     background: {
-      default: '#000000', // Black background
-      paper: '#111111',   // Slightly lighter for cards/surfaces
+      default: '#121212', // A slightly softer black
+      paper: '#1e1e1e',   // A lighter grey for cards/surfaces
     },
     text: {
       primary: '#ffffff',
-      secondary: '#888888', // Grey for secondary text
+      secondary: '#a0a0a0', // A lighter grey for secondary text
     },
   },
   typography: {
@@ -47,27 +47,22 @@ export const darkTheme = createTheme({
           borderRadius: '8px',
           textTransform: 'none',
           fontWeight: 600,
+          transition: 'transform 0.2s',
+          '&:hover': {
+            transform: 'scale(1.05)',
+          },
         },
         containedPrimary: {
-          backgroundColor: '#ffffff',
-          color: '#000000',
           '&:hover': {
-            backgroundColor: '#f0f0f0',
+            backgroundColor: '#005ecb',
           },
         },
-        containedSecondary: {
-            backgroundColor: '#222222',
-            color: '#ffffff',
-            '&:hover': {
-              backgroundColor: '#333333',
-            },
-          },
       },
     },
     MuiAppBar: {
       styleOverrides: {
         root: {
-          backgroundColor: 'rgba(17, 17, 17, 0.8)', // Semi-transparent for a modern feel
+          backgroundColor: 'rgba(18, 18, 18, 0.8)', // Semi-transparent for a modern feel
           backdropFilter: 'blur(10px)',
           boxShadow: 'none',
           borderBottom: '1px solid #333333',
@@ -75,12 +70,12 @@ export const darkTheme = createTheme({
       },
     },
     MuiCard: {
-        styleOverrides: {
-          root: {
-            borderRadius: '12px',
-            border: '1px solid #333333',
-          },
+      styleOverrides: {
+        root: {
+          borderRadius: '12px',
+          border: '1px solid #333333',
         },
       },
+    },
   },
 });
