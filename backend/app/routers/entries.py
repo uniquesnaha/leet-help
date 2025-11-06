@@ -1,11 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, File, UploadFile, Form
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from .. import schemas, database, models
 from ..database import get_db
-import requests
-import json
+from ..auth_utils import get_current_user
 import os
-from typing import Optional
+from typing import List, Optional
+import shutil
 
 router = APIRouter(
     prefix="/entries",
@@ -16,122 +16,98 @@ UPLOAD_DIRECTORY = "./uploads"
 if not os.path.exists(UPLOAD_DIRECTORY):
     os.makedirs(UPLOAD_DIRECTORY)
 
-from ..auth_utils import get_current_user
-import requests
-import json
-from typing import List
+# --- Problems ---
 
-from typing import Optional
-
-@router.get("/", response_model=List[schemas.Entry])
-def get_entries(
+@router.get("/", response_model=List[schemas.Problem])
+def get_problems(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
     search: Optional[str] = None,
     difficulty: Optional[str] = None,
     tags: Optional[str] = None,
 ):
-    query = db.query(models.Entry).filter(models.Entry.owner_id == current_user.id)
+    """
+    Get all problems for the current user.
+    A user has a problem if they have at least one entry for it.
+    """
+    # Start with a query for problems
+    query = db.query(models.Problem).join(models.Entry).filter(models.Entry.owner_id == current_user.id)
+
     if search:
-        query = query.filter(models.Entry.title.contains(search) | models.Entry.notes.contains(search))
+        query = query.filter(models.Problem.title.contains(search) | models.Entry.notes.contains(search))
     if difficulty:
-        query = query.filter(models.Entry.difficulty == difficulty)
+        query = query.filter(models.Problem.difficulty == difficulty)
     if tags:
-        query = query.filter(models.Entry.tags.contains(tags))
-    return query.all()
+        # Assuming tags are stored as a comma-separated string in the model
+        query = query.filter(models.Problem.tags.contains(tags))
 
-@router.post("/scrape", response_model=schemas.ProblemDetails)
-def scrape_leetcode_url(leetcode_url: schemas.LeetCodeURL, db: Session = Depends(get_db)):
-    url = leetcode_url.url
-    # Extract the title slug from the URL
-    try:
-        title_slug = url.split("/problems/")[1].split("/")[0]
-    except IndexError:
-        raise HTTPException(status_code=400, detail="Invalid LeetCode URL")
+    # Get unique problems
+    problems = query.distinct().all()
+    return problems
 
-    graphql_query = {
-        "query": """
-            query questionData($titleSlug: String!) {
-                question(titleSlug: $titleSlug) {
-                    questionId
-                    title
-                    content
-                    difficulty
-                    topicTags {
-                        name
-                        slug
-                    }
-                }
-            }
-        """,
-        "variables": {
-            "titleSlug": title_slug
-        }
-    }
-
-    try:
-        response = requests.post("https://leetcode.com/graphql", json=graphql_query)
-        response.raise_for_status()
-        data = response.json()
-    except (requests.RequestException, json.JSONDecodeError) as e:
-        raise HTTPException(status_code=400, detail=f"Error fetching data from LeetCode API: {e}")
-
-    question_data = data.get("data", {}).get("question")
-
-    if not question_data:
-        raise HTTPException(status_code=404, detail="Problem not found")
-
-    return schemas.ProblemDetails(
-        title=question_data.get("title"),
-        url=url,
-        difficulty=question_data.get("difficulty"),
-        tags=[tag.get("name") for tag in question_data.get("topicTags", [])],
-        description=question_data.get("content"),
-    )
 
 @router.post("/", response_model=schemas.Entry)
 async def create_entry(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
+    # Problem details
     title: str = Form(...),
     url: str = Form(...),
     difficulty: str = Form(...),
     tags: str = Form(...),
     description: str = Form(...),
+    # Entry details
     solution_code: str = Form(...),
     notes: str = Form(...),
     time_complexity: str = Form(...),
     space_complexity: str = Form(...),
-    image: Optional[UploadFile] = File(None),
-    voice_memo: Optional[UploadFile] = File(None),
+    # Artifacts
+    artifacts: List[UploadFile] = File(...),
 ):
-    image_path = None
-    if image:
-        image_path = os.path.join(UPLOAD_DIRECTORY, image.filename)
-        with open(image_path, "wb") as buffer:
-            buffer.write(await image.read())
+    # Find or create the problem
+    db_problem = db.query(models.Problem).filter(models.Problem.url == url).first()
+    if not db_problem:
+        db_problem = models.Problem(
+            title=title,
+            url=url,
+            difficulty=difficulty,
+            tags=tags,
+            description=description,
+        )
+        db.add(db_problem)
+        db.commit()
+        db.refresh(db_problem)
 
-    voice_memo_path = None
-    if voice_memo:
-        voice_memo_path = os.path.join(UPLOAD_DIRECTORY, voice_memo.filename)
-        with open(voice_memo_path, "wb") as buffer:
-            buffer.write(await voice_memo.read())
-
+    # Create the new entry
     db_entry = models.Entry(
-        title=title,
-        url=url,
-        difficulty=difficulty,
-        tags=tags, # Tags are sent as a comma-separated string
-        description=description,
         solution_code=solution_code,
         notes=notes,
         time_complexity=time_complexity,
         space_complexity=space_complexity,
-        image_path=image_path,
-        voice_memo_path=voice_memo_path,
         owner_id=current_user.id,
+        problem_id=db_problem.id,
     )
     db.add(db_entry)
     db.commit()
     db.refresh(db_entry)
-    return schemas.Entry.from_orm(db_entry)
+
+    # Handle artifacts
+    for artifact_file in artifacts:
+        # Determine artifact type from MIME type
+        artifact_type = models.ArtifactType.IMAGE if "image" in artifact_file.content_type else models.ArtifactType.VOICE_MEMO
+
+        file_location = os.path.join(UPLOAD_DIRECTORY, f"{db_entry.id}_{artifact_file.filename}")
+        with open(file_location, "wb+") as file_object:
+            shutil.copyfileobj(artifact_file.file, file_object)
+
+        db_artifact = models.Artifact(
+            file_path=file_location,
+            artifact_type=artifact_type,
+            entry_id=db_entry.id
+        )
+        db.add(db_artifact)
+
+    db.commit()
+    db.refresh(db_entry)
+
+    return db_entry

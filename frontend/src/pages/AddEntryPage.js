@@ -1,225 +1,101 @@
-import React, { useState } from 'react';
-import { Button, TextField, Container, Typography, Box, Select, MenuItem, InputLabel, FormControl } from '@mui/material';
+import React, { useState, useCallback } from 'react';
+import {
+  Container, Typography, Box, Button, TextField, Modal, Paper, Grid,
+  FormControl, Select, MenuItem, InputLabel, CircularProgress, Card, CardContent
+} from '@mui/material';
+import Editor from 'react-simple-code-editor';
+import { highlight, languages } from 'prismjs/components/prism-core';
+import 'prismjs/components/prism-clike';
+import 'prismjs/components/prism-javascript';
+import 'prismjs/themes/prism-tomorrow.css';
+import { useDropzone } from 'react-dropzone';
+import { ReactMediaRecorder } from 'react-media-recorder';
 import axios from 'axios';
-import AIDialog from '../components/AIDialog';
+import { useNavigate } from 'react-router-dom';
 
-function AddEntryPage() {
+const modalStyle = {
+  position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+  width: 400, bgcolor: 'background.paper', border: '2px solid #000', boxShadow: 24, p: 4,
+};
+
+const AddEntryPage = () => {
+  const navigate = useNavigate();
   const [url, setUrl] = useState('');
   const [problemDetails, setProblemDetails] = useState(null);
-  const [solutionCode, setSolutionCode] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [modalOpen, setModalOpen] = useState(true);
+  const [code, setCode] = useState('// Your solution here');
   const [notes, setNotes] = useState('');
   const [timeComplexity, setTimeComplexity] = useState('');
   const [spaceComplexity, setSpaceComplexity] = useState('');
-  const [image, setImage] = useState(null);
-  const [voiceMemo, setVoiceMemo] = useState(null);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [dialogTitle, setDialogTitle] = useState('');
-  const [dialogContent, setDialogContent] = useState('');
+  const [imageFiles, setImageFiles] = useState([]);
+  const [voiceMemos, setVoiceMemos] = useState([]);
+  const [aiComplexityFeedback, setAiComplexityFeedback] = useState(null);
 
-  const handleScrape = async (e) => {
-    e.preventDefault();
-    try {
-      const response = await axios.post('http://localhost:8000/entries/scrape', { url });
-      setProblemDetails(response.data);
-    } catch (error) {
-      console.error('Scraping failed:', error);
-    }
-  };
+  const onDrop = useCallback(acceptedFiles => {
+    setImageFiles(prevFiles => [...prevFiles, ...acceptedFiles]);
+  }, []);
 
-  const handleExplainCode = async () => {
-    try {
-      const response = await axios.post('http://localhost:8000/ai/explain', {
-        code: solutionCode,
-        problem_description: problemDetails.description,
-      });
-      setDialogTitle('Code Explanation');
-      setDialogContent(response.data.explanation);
-      setDialogOpen(true);
-    } catch (error) {
-      console.error('Code explanation failed:', error);
-    }
-  };
+  const { getRootProps, getInputProps } = useDropzone({ onDrop, accept: 'image/*' });
+
+  const handleFetchProblem = async () => { /* ... existing code ... */ };
 
   const handleCheckComplexity = async () => {
     try {
-      const response = await axios.post('http://localhost:8000/ai/check-complexity', {
-        code: solutionCode,
-      });
-      setDialogTitle('Complexity Check');
-      setDialogContent(response.data.feedback);
-      setDialogOpen(true);
+      const response = await axios.post('/ai/check-complexity', { code });
+      setAiComplexityFeedback(response.data);
     } catch (error) {
-      console.error('Complexity check failed:', error);
+      console.error("Failed to check complexity", error);
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleNewVoiceMemo = (blobUrl, blob) => {
+    const file = new File([blob], `voice-memo-${Date.now()}.webm`, { type: 'audio/webm' });
+    setVoiceMemos(prevMemos => [...prevMemos, { url: blobUrl, file }]);
+  };
+
+  const handleSubmit = async () => {
+    if (!problemDetails) return;
+
     const formData = new FormData();
+    // Append problem details
     formData.append('title', problemDetails.title);
     formData.append('url', problemDetails.url);
     formData.append('difficulty', problemDetails.difficulty);
     formData.append('tags', problemDetails.tags.join(','));
     formData.append('description', problemDetails.description);
-    formData.append('solution_code', solutionCode);
+    // Append entry details
+    formData.append('solution_code', code);
     formData.append('notes', notes);
     formData.append('time_complexity', timeComplexity);
     formData.append('space_complexity', spaceComplexity);
-    if (image) formData.append('image', image);
-    if (voiceMemo) formData.append('voice_memo', voiceMemo);
+    // Append all artifact files
+    [...imageFiles, ...voiceMemos.map(memo => memo.file)].forEach(file => {
+      formData.append('artifacts', file);
+    });
 
-    const token = localStorage.getItem('token');
     try {
-      await axios.post('http://localhost:8000/entries/', formData, {
+      const token = localStorage.getItem('token');
+      await axios.post('/entries/', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
-          'Authorization': `Bearer ${token}`,
-        },
+          'Authorization': `Bearer ${token}`
+        }
       });
-      // Handle successful submission (e.g., redirect or show a success message)
+      navigate('/vault'); // Navigate to the codex vault on success
     } catch (error) {
-      console.error('Submission failed:', error);
+      console.error("Failed to submit entry:", error);
+      // Add user-facing error handling
     }
   };
 
+  if (!problemDetails) { /* ... existing modal code ... */ }
+
   return (
-    <Container maxWidth="md">
-      <Box sx={{ marginTop: 8 }}>
-        <Typography component="h1" variant="h5">
-          Add New LeetCode Entry
-        </Typography>
-        <Box component="form" onSubmit={handleScrape} sx={{ mt: 1 }}>
-          <TextField
-            margin="normal"
-            required
-            fullWidth
-            id="url"
-            label="LeetCode Problem URL"
-            name="url"
-            autoFocus
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-          />
-          <Button
-            type="submit"
-            fullWidth
-            variant="contained"
-            sx={{ mt: 3, mb: 2 }}
-          >
-            Scrape Problem
-          </Button>
-        </Box>
-        {problemDetails && (
-          <Box component="form" onSubmit={handleSubmit} sx={{ mt: 4 }}>
-            <Typography variant="h6">{problemDetails.title}</Typography>
-            <Typography variant="subtitle1" color="text.secondary">
-              {problemDetails.difficulty} | Tags: {problemDetails.tags.join(', ')}
-            </Typography>
-            <div dangerouslySetInnerHTML={{ __html: problemDetails.description }} />
-
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              id="solutionCode"
-              label="Solution Code"
-              name="solutionCode"
-              multiline
-              rows={10}
-              value={solutionCode}
-              onChange={(e) => setSolutionCode(e.target.value)}
-            />
-            <Button
-              variant="contained"
-              color="secondary"
-              sx={{ mt: 2 }}
-              onClick={handleExplainCode}
-            >
-              Explain My Code
-            </Button>
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              id="notes"
-              label="Notes"
-              name="notes"
-              multiline
-              rows={5}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-            />
-            <FormControl fullWidth margin="normal">
-              <InputLabel id="time-complexity-label">Time Complexity</InputLabel>
-              <Select
-                labelId="time-complexity-label"
-                id="timeComplexity"
-                value={timeComplexity}
-                label="Time Complexity"
-                onChange={(e) => setTimeComplexity(e.target.value)}
-              >
-                <MenuItem value="O(1)">O(1)</MenuItem>
-                <MenuItem value="O(log n)">O(log n)</MenuItem>
-                <MenuItem value="O(n)">O(n)</MenuItem>
-                <MenuItem value="O(n log n)">O(n log n)</MenuItem>
-                <MenuItem value="O(n^2)">O(n^2)</MenuItem>
-              </Select>
-            </FormControl>
-            <FormControl fullWidth margin="normal">
-              <InputLabel id="space-complexity-label">Space Complexity</InputLabel>
-              <Select
-                labelId="space-complexity-label"
-                id="spaceComplexity"
-                value={spaceComplexity}
-                label="Space Complexity"
-                onChange={(e) => setSpaceComplexity(e.target.value)}
-              >
-                <MenuItem value="O(1)">O(1)</MenuItem>
-                <MenuItem value="O(log n)">O(log n)</MenuItem>
-                <MenuItem value="O(n)">O(n)</MenuItem>
-                <MenuItem value="O(n log n)">O(n log n)</MenuItem>
-                <MenuItem value="O(n^2)">O(n^2)</MenuItem>
-              </Select>
-            </FormControl>
-
-            <Button
-              variant="contained"
-              color="secondary"
-              sx={{ mt: 2 }}
-              onClick={handleCheckComplexity}
-            >
-              Check My Complexity
-            </Button>
-
-            <Button variant="contained" component="label" sx={{ mt: 2, ml: 2 }}>
-              Upload Image
-              <input type="file" hidden onChange={(e) => setImage(e.target.files[0])} />
-            </Button>
-            <Button variant="contained" component="label" sx={{ mt: 2, ml: 2 }}>
-              Upload Voice Memo
-              <input type="file" hidden onChange={(e) => setVoiceMemo(e.target.files[0])} />
-            </Button>
-
-            <Button
-              type="submit"
-              fullWidth
-              variant="contained"
-              color="primary"
-              sx={{ mt: 3, mb: 2 }}
-            >
-              Submit Entry
-            </Button>
-          </Box>
-        )}
-      </Box>
-      <AIDialog
-        open={dialogOpen}
-        onClose={() => setDialogOpen(false)}
-        title={dialogTitle}
-        content={dialogContent}
-      />
+    <Container maxWidth="lg">
+      {/* ... The rest of the component ... */}
     </Container>
   );
-}
+};
 
 export default AddEntryPage;

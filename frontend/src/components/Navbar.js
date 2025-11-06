@@ -1,10 +1,8 @@
 import React from 'react';
-import { AppBar, Toolbar, Typography, Button, IconButton } from '@mui/material';
+import { AppBar, Toolbar, Typography, Button } from '@mui/material';
 import { Link } from 'react-router-dom';
-import Brightness4Icon from '@mui/icons-material/Brightness4';
-import Brightness7Icon from '@mui/icons-material/Brightness7';
 
-function Navbar({ toggleTheme, theme }) {
+function Navbar() {
   return (
     <AppBar position="static">
       <Toolbar>
@@ -25,9 +23,6 @@ function Navbar({ toggleTheme, theme }) {
         <Button color="inherit" component={Link} to="/register">
           Register
         </Button>
-        <IconButton sx={{ ml: 1 }} onClick={toggleTheme} color="inherit">
-          {theme.palette.mode === 'dark' ? <Brightness7Icon /> : <Brightness4Icon />}
-        </IconButton>
       </Toolbar>
     </AppBar>
   );
