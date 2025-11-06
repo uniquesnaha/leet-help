@@ -3,11 +3,7 @@ import {
   Container, Typography, Box, Button, TextField, Modal, Paper, Grid,
   FormControl, Select, MenuItem, InputLabel, CircularProgress, Card, CardContent
 } from '@mui/material';
-import Editor from 'react-simple-code-editor';
-import { highlight, languages } from 'prismjs/components/prism-core';
-import 'prismjs/components/prism-clike';
-import 'prismjs/components/prism-javascript';
-import 'prismjs/themes/prism-tomorrow.css';
+import Editor from '@monaco-editor/react';
 import { useDropzone } from 'react-dropzone';
 import { ReactMediaRecorder } from 'react-media-recorder';
 import axios from 'axios';
@@ -93,6 +89,13 @@ const AddEntryPage = () => {
 
   return (
     <Container maxWidth="lg">
+      <Editor
+        height="40vh"
+        defaultLanguage="javascript"
+        defaultValue="// Your solution here"
+        theme="vs-dark"
+        onChange={(value) => setCode(value)}
+      />
       {/* ... The rest of the component ... */}
     </Container>
   );

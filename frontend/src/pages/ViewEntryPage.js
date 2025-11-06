@@ -3,10 +3,7 @@ import { Container, Typography, Box, Paper, Grid, Button } from '@mui/material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Edit as EditIcon } from '@mui/icons-material';
 import axios from 'axios';
-import { highlight, languages } from 'prismjs/components/prism-core';
-import 'prismjs/components/prism-clike';
-import 'prismjs/components/prism-javascript';
-import 'prismjs/themes/prism-tomorrow.css';
+import Editor from '@monaco-editor/react';
 
 const ViewEntryPage = () => {
     const { entryId } = useParams();
@@ -64,9 +61,13 @@ const ViewEntryPage = () => {
             <Grid container spacing={3}>
                 <Grid item xs={12} md={8}>
                     <Typography variant="h6" sx={{ mt: 3 }}>My Solution</Typography>
-                    <Paper component="pre" sx={{ p: 2, backgroundColor: '#1e1e1e', overflowX: 'auto' }}>
-                        <code dangerouslySetInnerHTML={{ __html: highlight(entry.solution_code, languages.js, 'js') }} />
-                    </Paper>
+                    <Editor
+                      height="40vh"
+                      language="javascript"
+                      value={entry.solution_code}
+                      theme="vs-dark"
+                      options={{ readOnly: true }}
+                    />
 
                     <Typography variant="h6" sx={{ mt: 3 }}>My Notes</Typography>
                     <Paper sx={{ p: 2 }} dangerouslySetInnerHTML={{ __html: entry.notes }} />
